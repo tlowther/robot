@@ -68,7 +68,8 @@ class Factory
     $Location = [@x,@y,$Orientation[@dir]]
     $Factory.each { |a| puts a.join(' ')}
   end
-end  
+  
+
   def move_robot()
     while @l = STDIN.readline.chomp
       puts "Enter movement command ((1 = up, 2 = left, 3 = right, 4 = down):"
@@ -82,4 +83,6 @@ end
       $Factory.each { |a| puts a.join(' ')}
     end
   end
-end
+  
+end 
+
