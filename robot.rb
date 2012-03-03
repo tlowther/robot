@@ -1,88 +1,118 @@
 # ROBOT
 class Factory 
-  
-  $Factory = Array.new(){Array.new(){}}
-  
-  $Location = Array.new(3)
-  
-  $Orientation = Hash.new(0)
-  $Orientation[1] = "^"
-  $Orientation[3] = ">"
-  $Orientation[4] = "V"
-  $Orientation[2] = "<"
-  
-  $Moves = Hash.new(0)
-  $Moves[1] = [0,-1]
-  $Moves[2] = [-1,0]
-  $Moves[3] = [1,0]
-  $Moves[4] = [0,1]
+
+  ORIENTATION = { 
+    "N" => "^",
+    "E" => ">",
+    "S" => "v",
+    "W" => "<"
+  }
+
+  MOVES = {
+    "N" => [ 0,-1],
+    "E" => [ 1, 0],
+    "S" => [ 0, 1],
+    "W" => [-1, 0]
+  }
   
   def initialize(x, y)
     @x = x
     @y = y
-    $Factory = Array.new(@x){Array.new(@y){' '}}
-    $Factory[0] = Array.new(@x){"*"}
-    $Factory[@x-1] = Array.new(@x){"*"}
-    $Factory = $Factory.transpose
-    $Factory[0] = Array.new(@y){"*"}
-    $Factory[@y-1] = Array.new(@y){"*"}
-    $Factory = $Factory.transpose
-    $Factory.each { |a| puts a.join(' ')}
+    
+    # STILL NEED TO SWAP x AND Y
+    @factory = Array.new(@x) { Array.new(@y){' '} }
+    @factory[0] = Array.new(@x) { "*" }
+    @factory[@x-1] = Array.new(@x) { "*" }
+    @factory = @factory.transpose # only works on square areas
+    @factory[0] = Array.new(@y){ "*" }
+    @factory[@y-1] = Array.new(@y){ "*" }
+    @factory = @factory.transpose # only works on square areas
   end
 
   def place_pkg(x, y, d1, d2, type)
-    @x = x
-    @y = y
-    @d1 = d1
-    @d2 = d2
-    @type = type
-    @package = Array.new(@d1){Array.new(@d2){@type}}
-    i= 0
-    j = 0
-    loop do
-      break unless (@d1 > i)
-      loop do 
-        break unless (@d2 > j)
-        $Factory[x+i][y+j] = @package[i][j] 
-        j+=1
+    (x..(x+d1-1)).each do |i|
+      (y..(y+d2-1)).each do |j|
+        @factory[i][j] = type
       end
-      i+=1
-      j = 0
     end
-    $Factory.each { |a| puts a.join(' ')}
+    self
   end
   
-  def place_robot() 
+  def show_factory
+    @factory.each { |a| puts a.join(' ') }
+    self
+  end
+  
+  def place_robot
     puts "Enter x coordinate:"
-    @x = STDIN.readline.chomp
-    @x = @x.to_i
+    x = STDIN.readline.chomp.to_i
     puts "Enter y coordinate:"
-    @y = STDIN.readline.chomp
-    @y = @y.to_i
-#   puts "Enter x and y coordinates > 0, please try again." if (@x < 1 or @y < 1) break end
-    puts "Enter orientation (1 = up, 2 = left, 3 = right, 4 = down):"
-    @dir = STDIN.readline.chomp
-#   puts "Invalid orientation, please try again." if $Orientation[@dir] == 0 break end
-    @dir = @dir.to_i
-    $Factory[@x][@y] = $Orientation[@dir]
-    $Location = [@x,@y,$Orientation[@dir]]
-    $Factory.each { |a| puts a.join(' ')}
+    y = STDIN.readline.chomp.to_i
+    if (x < 1 || y < 1)
+      puts "Enter x and y coordinates > 0, please try again."
+      return nil
+    end
+    puts "Enter orientation (N, E, S, W):"
+    dir = STDIN.readline.chomp
+    if ORIENTATION[dir].nil?
+      puts "Invalid orientation, please try again."
+      return nil
+    end
+    @factory[x][y] = ORIENTATION[dir]
+    @location = [x,y,ORIENTATION[dir]]
+    self
+  end
+
+  def move_robot_forever
+    while true do
+      move_robot
+      show_factory
+    end
+    puts "Execution never gets here!"
   end
   
-
-  def move_robot()
-    while @l = STDIN.readline.chomp
-      puts "Enter movement command ((1 = up, 2 = left, 3 = right, 4 = down):"
-      puts "Invalid input, enter movement command (1 = up, 2 = left, 3 = right, 4 = down):" if $Moves[@l] == 0 return
-      moves = $Moves[@l]
-      if $Factory[$Location[0] + moves[1], $Location[1] + moves[1]] = ' ' then
-        $Factory[$Location[0], $Location[1]] = ' '
-        $Factory[$Location[0] + moves[1], $Location[1] + moves[1]] = $Orientation[@l]
-        else puts "Cannot move, try alternative direction." 
-      end
-      $Factory.each { |a| puts a.join(' ')}
+  def move_robot
+    puts "Enter movement command (N, E, S, W):"
+    l = STDIN.readline.chomp
+    unless MOVES.keys.include?(l)
+      puts "Invalid input, enter movement command (N, E, S, W)!"
+      return nil
     end
+    this_move = MOVES[l]
+
+    new_x = @location[0] + this_move[0]
+    new_y = @location[1] + this_move[1]
+
+    if @factory[new_x][new_y] == ' '
+      @factory[new_x][new_y] = ORIENTATION[l]
+      @factory[@location[0]][@location[1]] = ' '
+      @location = [new_x, new_y, ORIENTATION[l]]
+    else
+      puts "Cannot move, try alternative direction (this_move => #{this_move})." 
+    end
+    self
   end
   
 end 
+
+# class Floor
+#   
+#   def initialise(x,y)
+#     @plan = Array.new(@y) { Array.new(@x){' '} }
+#   end
+#   
+#   def show
+#     
+#   end
+#   
+#   def get(x,y)
+#     @plan[x][y]
+#   end
+# 
+#   def set(x,y,value)
+#     @plan[x][y] = value
+#   end
+#   
+# end
+
 
