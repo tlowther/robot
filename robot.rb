@@ -103,6 +103,9 @@ class Factory
   end
   
   def move_robot
+    if @location.nil?
+      return puts "No Robot present, use place_robot command to begin."
+    end
     puts "Enter movement command (N, E, S, W):"
     l = STDIN.readline.chomp.upcase
     unless MOVES.keys.include?(l)
