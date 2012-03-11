@@ -159,13 +159,14 @@ class Package
 end
 
 class Inventory
- 	 
- 	 def initialize(pkg)
-     @pkg_list = [] if @pkg_list == nil    
-     @pkg_list << pkg
-   end
-   
-   def show
+
+ 	def initialize(pkg)
+    @pkg_list = [] if @pkg_list == nil    
+    @pkg_list << pkg
+  end
+
+  def show
      @pkg_list.each {|a| puts "[#{a.to_s}, #{a.dims}, #{a.loc}]"}
-   end
+  end
+
 end
