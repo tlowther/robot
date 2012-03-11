@@ -35,11 +35,14 @@ class Factory
   
   def place_pkg(x, y, d1, d2, type)
     pkg = Package.new(x, y, d1, d2, type)
+
     (y..(y+d2-1)).each do |i|
       (x..(x+d1-1)).each do |j|
         @floorplan[i][j] = pkg
       end
     end
+    @pkg_list = Inventory.new(pkg)
+    @pkg_list.show_inventory
     self
   end
   
@@ -100,9 +103,10 @@ class Factory
       puts "Cannot move, try alternative direction (this_move => #{this_move})." 
     
     else 
-      print "Cannot move to [#{new_x}, #{new_y}], "
-      print "package at #{@floorplan[new_y][new_x].loc} " 
-      puts "of dimensions #{@floorplan[new_y][new_x].dims}"
+  
+    print "Cannot move to [#{new_x}, #{new_y}], "
+    print "package at #{@floorplan[new_y][new_x].loc} " 
+    puts "of dimensions #{@floorplan[new_y][new_x].dims}"
     
     end
     self
@@ -117,9 +121,9 @@ class Package
     @y = y
     @d1 = d1
     @d2 = d2
-    @type = type
+    @type = type 
   end
-  
+    
   def to_s
     @type
   end
@@ -134,4 +138,15 @@ class Package
 
 end
 
+class Inventory
+  
+  def initialize(pkg)
+    @pkg_list = [] if @pkg_list == nil    
+    @pkg_list << pkg
+  end
+  
+  def show_inventory
+    @pkg_list.each {|a| puts "[#{a.to_s}, #{a.dims}, #{a.loc}]"}
+  end
 
+end
