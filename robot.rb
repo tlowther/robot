@@ -35,17 +35,37 @@ class Factory
   
   def place_pkg(x, y, d1, d2, type)
     pkg = Package.new(x, y, d1, d2, type)
-
-    (y..(y+d2-1)).each do |i|
-      (x..(x+d1-1)).each do |j|
-        @floorplan[i][j] = pkg
+    
+    place = space?(x, y, d1, d2, type)
+    if place[0] == true 
+      (y..(y+d2-1)).each do |i|
+        (x..(x+d1-1)).each do |j|
+          @floorplan[i][j] = pkg
+        end
       end
+      Inventory.new(pkg).show
+    else
+      print "Cannot place package at [#{x}, #{y}], "
+      print "clash with '#{place[1].to_s}'"
+      print " package at #{place[1].loc}" 
+      puts " of dimensions #{place[1].dims}"
+      @floorplan.show
     end
-    @pkg_list = Inventory.new(pkg)
-    @pkg_list.show_inventory
     self
   end
-  
+
+  def space?(x, y, d1, d2, type)  
+    status = [true]
+    (y..(y+d2-1)).each do |i|
+      (x..(x+d1-1)).each do |j|
+        if (@floorplan[i][j] != ' ') 
+          status = [false, @floorplan[i][j]]
+        end
+      end
+    end
+    status
+  end  
+
   def to_s
     nil
   end
@@ -139,14 +159,13 @@ class Package
 end
 
 class Inventory
-  
-  def initialize(pkg)
-    @pkg_list = [] if @pkg_list == nil    
-    @pkg_list << pkg
-  end
-  
-  def show_inventory
-    @pkg_list.each {|a| puts "[#{a.to_s}, #{a.dims}, #{a.loc}]"}
-  end
-
+ 	 
+ 	 def initialize(pkg)
+     @pkg_list = [] if @pkg_list == nil    
+     @pkg_list << pkg
+   end
+   
+   def show
+     @pkg_list.each {|a| puts "[#{a.to_s}, #{a.dims}, #{a.loc}]"}
+   end
 end
