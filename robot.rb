@@ -23,7 +23,8 @@ module Sim
       @y = y
     
       @inventory = Inventory.new
-    
+      
+      # creates blank floor with walls defined as '*' character
       bottom_row = top_row = Array.new(@x) { "*" }
       internal_row = Array.new(@x) { " " }
       internal_row[0]  = "*"
@@ -39,30 +40,27 @@ module Sim
     end
   
     def place_pkg(x, y, d1, d2, type)
+      # create new package
       pkg = Package.new(x, y, d1, d2, type)
   
+      # check if insertion space is already occupied, insert if empty, 
+      # return err_msg_1 if occupied
       if occupants(pkg, nil).nil? 
         fill_floor(x, y, d1, d2, pkg)
         @inventory.add(pkg)
       else
-        err_msg_1(x, y, pkg)
+        err_msg_1(x, y, occupants(pkg, nil))
       end
       self
     end
     
-    def err_msg_1(x, y, pkg)
-      print "Cannot place package at [#{x}, #{y}], "
-      if !occupants(pkg)[0].include?('*') 
-        print "clash with '#{occupants(pkg)[0].to_s}'"
-        print " package at #{occupants(pkg)[0].loc}" 
-        puts " of dimensions #{occupants(pkg)[0].dims}"
-      else 
-        puts "clash with wall ('*')"
-      end
-    end  
-    
     def occupants(pkg, move)  
       existing_occ = []
+      
+      # occupants performs checking for package placement and for package 
+      # movement, 'move' is set to nil when placement is required or to the 
+      # movement direction when package movement is required. This determines
+      # the range of places in the floorplan to check for occupants.
       if move.nil?
         range_y = pkg.range[:y]
         range_x = pkg.range[:x]
@@ -95,6 +93,7 @@ module Sim
     end
   
     def place_robot
+      
       puts "Enter x coordinate:"
       x = STDIN.readline.chomp.to_i
       puts "Enter y coordinate:"
@@ -134,37 +133,23 @@ module Sim
 
       new_x = @location[0] + MOVES[dir][:x]
       new_y = @location[1] + MOVES[dir][:y]
+      next_loc = @floorplan[new_y][new_x]
 
-      if @floorplan[new_y][new_x] == ' '
-        @floorplan[new_y][new_x] = ORIENTATION[dir]
-        @floorplan[@location[1]][@location[0]] = ' '
-        @location = [new_x, new_y, ORIENTATION[dir]]
-    
-      elsif @floorplan[new_y][new_x] == '*'
+      if next_loc == ' '
+        reassign(new_x, new_y, dir)
+      elsif next_loc == '*'
         puts "Cannot move, try alternative direction (this_move => #{MOVES[dir]})." 
-    
       else
-        check = occupants(@floorplan[new_y][new_x], dir)
-        
-        if check.nil? 
-          reloc_pkg(dir, @floorplan[new_y][new_x])
-          @floorplan[new_y][new_x] = ORIENTATION[dir]
-          @floorplan[@location[1]][@location[0]] = ' '
-          @location = [new_x, new_y, ORIENTATION[dir]]
+        if occupants(next_loc, dir).nil? 
+          reloc_pkg(dir, next_loc)
+          reassign(new_x, new_y, dir)  
         else
-          print "Cannot move to [#{new_x}, #{new_y}], "
-          if !check.include?('*') 
-            print "clash with '#{check[0].to_s}'"
-            print " package at #{check[0].loc}" 
-            puts " of dimensions #{check[0].dims}"
-          else 
-            puts "clash with wall ('*')"
-          end
+          err_msg_2(new_x, new_y, occupants(next_loc, dir))
         end
       end
       self
     end
-  
+        
     def reloc_pkg(dir, pkg)    
       new_loc = [pkg.loc[0] + MOVES[dir][:x], pkg.loc[1] + MOVES[dir][:y]]
     
@@ -188,7 +173,35 @@ module Sim
         end
       end
     end
-  
+    
+    def reassign(new_x, new_y, dir)
+      
+      @floorplan[new_y][new_x] = ORIENTATION[dir]
+      @floorplan[@location[1]][@location[0]] = ' '
+      @location = [new_x, new_y, ORIENTATION[dir]]
+    end
+    
+    def err_msg_1(x, y, check)
+      print "Cannot place package at [#{x}, #{y}], "
+      if !check.include?('*') 
+        print "clash with '#{check[0].to_s}'"
+        print " package at #{check[0].loc}" 
+        puts " of dimensions #{check[0].dims}"
+      else 
+        puts "clash with wall ('*')"
+      end
+    end  
+    
+    def err_msg_2(new_x, new_y, check)
+      print "Cannot move to [#{new_x}, #{new_y}], "
+      if !check.include?('*') 
+        print "clash with '#{check[0].to_s}'"
+        print " package at #{check[0].loc}" 
+        puts " of dimensions #{check[0].dims}"
+      else 
+        puts "clash with wall ('*')"
+      end
+    end
   end 
 
   class Package
