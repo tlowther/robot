@@ -41,31 +41,49 @@ module Sim
     def place_pkg(x, y, d1, d2, type)
       pkg = Package.new(x, y, d1, d2, type)
   
-      if occupant(pkg).nil? 
+      if occupants(pkg, nil).nil? 
         fill_floor(x, y, d1, d2, pkg)
         @inventory.add(pkg)
       else
-        print "Cannot place package at [#{x}, #{y}], "
-        if intersecting(pkg) != '*' 
-          print "clash with '#{intersecting(pkg).to_s}'"
-          print " package at #{intersecting(pkg).loc}" 
-          puts " of dimensions #{intersecting(pkg).dims}"
-        else 
-          puts "clash with wall ('*')"
-        end
+        err_msg_1(x, y, pkg)
       end
       self
     end
-
-    def occupant(pkg)  
-      (pkg.range[:y]).each do |i|
-        (pkg.range[:x]).each do |j|
-          if (@floorplan[i][j] != ' ') 
-            return @floorplan[i][j]
+    
+    def err_msg_1(x, y, pkg)
+      print "Cannot place package at [#{x}, #{y}], "
+      if !occupants(pkg)[0].include?('*') 
+        print "clash with '#{occupants(pkg)[0].to_s}'"
+        print " package at #{occupants(pkg)[0].loc}" 
+        puts " of dimensions #{occupants(pkg)[0].dims}"
+      else 
+        puts "clash with wall ('*')"
+      end
+    end  
+    
+    def occupants(pkg, move)  
+      existing_occ = []
+      if move.nil?
+        range_y = pkg.range[:y]
+        range_x = pkg.range[:x]
+      else
+        range_y = pkg.next_range(move)[:y]
+        range_x = pkg.next_range(move)[:x]
+      end
+      
+      (range_y).each do |i|
+         (range_x).each do |j|
+          if ((@floorplan[i][j] != ' ') && (@floorplan[i][j] != pkg)) 
+            existing_occ << @floorplan[i][j]
           end
         end
       end
-      nil
+      if existing_occ.empty?
+        nil
+      else
+        existing_occ.each { |a| puts a}
+        existing_occ
+      end
     end  
 
     def to_s
@@ -108,35 +126,40 @@ module Sim
         return puts "No Robot present, use place_robot command to begin."
       end
       puts "Enter movement command (N, E, S, W):"
-      l = STDIN.readline.chomp.upcase
-      unless MOVES.keys.include?(l)
+      dir = STDIN.readline.chomp.upcase
+      unless MOVES.keys.include?(dir)
         puts "Invalid input, enter movement command (N, E, S, W)!"
         return nil
       end
 
-      new_x = @location[0] + MOVES[l][:x]
-      new_y = @location[1] + MOVES[l][:y]
+      new_x = @location[0] + MOVES[dir][:x]
+      new_y = @location[1] + MOVES[dir][:y]
 
       if @floorplan[new_y][new_x] == ' '
-        @floorplan[new_y][new_x] = ORIENTATION[l]
+        @floorplan[new_y][new_x] = ORIENTATION[dir]
         @floorplan[@location[1]][@location[0]] = ' '
-        @location = [new_x, new_y, ORIENTATION[l]]
+        @location = [new_x, new_y, ORIENTATION[dir]]
     
       elsif @floorplan[new_y][new_x] == '*'
-        puts "Cannot move, try alternative direction (this_move => #{this_move})." 
+        puts "Cannot move, try alternative direction (this_move => #{MOVES[dir]})." 
     
-      else 
-        dir = l
-        pkg = @floorplan[new_y][new_x]
-        if pkg.move_pkg?(dir, @inventory) == true
-          reloc_pkg(dir, pkg)
-          @floorplan[new_y][new_x] = ORIENTATION[l]
+      else
+        check = occupants(@floorplan[new_y][new_x], dir)
+        
+        if check.nil? 
+          reloc_pkg(dir, @floorplan[new_y][new_x])
+          @floorplan[new_y][new_x] = ORIENTATION[dir]
           @floorplan[@location[1]][@location[0]] = ' '
-          @location = [new_x, new_y, ORIENTATION[l]]
+          @location = [new_x, new_y, ORIENTATION[dir]]
         else
           print "Cannot move to [#{new_x}, #{new_y}], "
-          print "package at #{@floorplan[new_y][new_x].loc} " 
-          puts "of dimensions #{@floorplan[new_y][new_x].dims}"
+          if !check.include?('*') 
+            print "clash with '#{check[0].to_s}'"
+            print " package at #{check[0].loc}" 
+            puts " of dimensions #{check[0].dims}"
+          else 
+            puts "clash with wall ('*')"
+          end
         end
       end
       self
@@ -144,6 +167,7 @@ module Sim
   
     def reloc_pkg(dir, pkg)    
       new_loc = [pkg.loc[0] + MOVES[dir][:x], pkg.loc[1] + MOVES[dir][:y]]
+    
       #clear old package from floorplan
       fill_floor(pkg.loc[0], pkg.loc[1], pkg.dims[0], pkg.dims[1],' ')
     
@@ -190,20 +214,20 @@ module Sim
     end  
 
     def move_pkg?(dir, pkg_list)
-
-      new_x = @x + MOVES[dir][:x]
-      new_y = @y + MOVES[dir][:y]
-    
-      range_x = new_x..(new_x+@d1-1)
-      range_y = new_y..(new_y+@d2-1)  
-
-      !pkg_list.intersect?(self, range_x, range_y)
+      !pkg_list.intersect?(self, next_range(dir)[:x], next_range(dir)[:y])
     end
 
     def range
       { :x => @x..(@x+@d1-1), :y => @y..(@y+@d2-1) }
     end
 
+    def next_range(dir)
+      { 
+        :x => (@x+MOVES[dir][:x])..(@x+MOVES[dir][:x]+@d1-1),
+        :y => (@y+MOVES[dir][:y])..(@y+MOVES[dir][:y]+@d2-1) 
+      }
+    end
+    
   end
 
   class Inventory
