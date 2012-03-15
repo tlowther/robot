@@ -3,10 +3,11 @@
 module Sim
   
   MOVES = {
-    "N" => { :x =>  0, :y => -1 },
-    "E" => { :x =>  1, :y =>  0 },
-    "S" => { :x =>  0, :y =>  1 },
-    "W" => { :x => -1, :y =>  0 }
+    "N" => { :x =>  0, :y => -1, :rx =>  0, :ry =>  1 },
+    "E" => { :x =>  1, :y =>  0, :rx => -1, :ry =>  0 },
+    "S" => { :x =>  0, :y =>  1, :rx =>  0, :ry => -1 },
+    "W" => { :x => -1, :y =>  0, :rx =>  1, :ry =>  0 },
+    "R" => { :r => 0}
   }
 
   class Factory
@@ -15,9 +16,17 @@ module Sim
       "N" => "^",
       "E" => ">",
       "S" => "v",
-      "W" => "<"
+      "W" => "<",
+      "R" => 0
     }
-
+    
+    REVERSE = { 
+      "N" => "S",
+      "E" => "W",
+      "S" => "N",
+      "W" => "E"
+    }
+    
     def initialize(x, y)
       @x = x
       @y = y
@@ -56,7 +65,7 @@ module Sim
     
     def occupants(pkg, move)  
       existing_occ = []
-      
+
       # occupants performs checking for package placement and for package 
       # movement, 'move' is set to nil when placement is required or to the 
       # movement direction when package movement is required. This determines
@@ -109,7 +118,7 @@ module Sim
         return nil
       end
       @floorplan[y][x] = ORIENTATION[dir]
-      @location = [x,y,ORIENTATION[dir]]
+      @location = [x, y, ORIENTATION[dir], dir]
       self
     end
 
@@ -124,33 +133,40 @@ module Sim
       if @location.nil?
         return puts "No Robot present, use place_robot command to begin."
       end
-      puts "Enter movement command (N, E, S, W):"
+      puts "Enter movement command (N, E, S, W or R (reverse)):"
       dir = STDIN.readline.chomp.upcase
       unless MOVES.keys.include?(dir)
         puts "Invalid input, enter movement command (N, E, S, W)!"
         return nil
       end
-
-      new_x = @location[0] + MOVES[dir][:x]
-      new_y = @location[1] + MOVES[dir][:y]
-      next_loc = @floorplan[new_y][new_x]
-
-      if next_loc == ' '
-        reassign(new_x, new_y, dir)
-      elsif next_loc == '*'
-        puts "Cannot move, try alternative direction (this_move => #{MOVES[dir]})." 
+      
+      if dir != 'R'
+        new_x = @location[0] + MOVES[dir][:x]
+        new_y = @location[1] + MOVES[dir][:y]
       else
-        if occupants(next_loc, dir).nil? 
-          reloc_pkg(dir, next_loc)
+        new_x = @location[0] + MOVES[@location[3]][:rx]
+        new_y = @location[1] + MOVES[@location[3]][:ry]
+        dir = @location[3]      
+      end
+      
+      if @floorplan[new_y][new_x] == ' '
+        reassign(new_x, new_y, dir)
+      elsif @floorplan[new_y][new_x] == '*'
+        print "Cannot move, try alternative direction "
+        puts  "(current direction => #{ORIENTATION[dir]})." 
+      else
+        if occupants(@floorplan[new_y][new_x], dir).nil? 
+          reloc_pkg(dir, @floorplan[new_y][new_x])
           reassign(new_x, new_y, dir)  
         else
-          err_msg_2(new_x, new_y, occupants(next_loc, dir))
+          err_msg_2(new_x, new_y, occupants(@floorplan[new_y][new_x], dir))
         end
       end
       self
     end
         
     def reloc_pkg(dir, pkg)    
+
       new_loc = [pkg.loc[0] + MOVES[dir][:x], pkg.loc[1] + MOVES[dir][:y]]
     
       #clear old package from floorplan
@@ -158,10 +174,15 @@ module Sim
     
       #insert relocated package into floorplan
       place_pkg(new_loc[0], new_loc[1], pkg.dims[0], pkg.dims[1], pkg.to_s)
-      new_pkg = @floorplan[new_loc[1]][new_loc[0]]
 
-      #replace old package information in inventory with new information
-      @inventory.modify_inventory(pkg, new_pkg)        
+      # #clear old package from floorplan
+      # fill_floor(pkg.loc[0], pkg.loc[1], pkg.dims[0], pkg.dims[1],' ')
+      #     
+      # #insert relocated package into floorplan
+      # mod_pkg = pkg.move_pkg(dir)
+      # puts "#{mod_pkg}"
+      # fill_floor(mod_pkg.loc[0], mod_pkg.loc[0], mod_pkg.dims[0], 
+      #   mod_pkg.dims[1], mod_pkg.to_s)      
     end
 
     private
@@ -178,7 +199,7 @@ module Sim
       
       @floorplan[new_y][new_x] = ORIENTATION[dir]
       @floorplan[@location[1]][@location[0]] = ' '
-      @location = [new_x, new_y, ORIENTATION[dir]]
+      @location = [new_x, new_y, ORIENTATION[dir], dir]
     end
     
     def err_msg_1(x, y, check)
@@ -226,9 +247,10 @@ module Sim
       [@x, @y]
     end  
 
-    def move_pkg?(dir, pkg_list)
-      !pkg_list.intersect?(self, next_range(dir)[:x], next_range(dir)[:y])
-    end
+    # def move_pkg(dir)
+    #   @x = @x + MOVES[dir][:x]
+    #   @y = @y + MOVES[dir][:y]
+    # end
 
     def range
       { :x => @x..(@x+@d1-1), :y => @y..(@y+@d2-1) }
