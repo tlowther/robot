@@ -3,11 +3,12 @@
 module Sim
   
   MOVES = {
-    "N" => { :x =>  0, :y => -1, :rx =>  0, :ry =>  1 },
-    "E" => { :x =>  1, :y =>  0, :rx => -1, :ry =>  0 },
-    "S" => { :x =>  0, :y =>  1, :rx =>  0, :ry => -1 },
-    "W" => { :x => -1, :y =>  0, :rx =>  1, :ry =>  0 },
-    "R" => { :r => 0}
+    "N"  => { :x =>  0, :y => -1, :rx =>  0, :ry =>  1 },
+    "E"  => { :x =>  1, :y =>  0, :rx => -1, :ry =>  0 },
+    "S"  => { :x =>  0, :y =>  1, :rx =>  0, :ry => -1 },
+    "W"  => { :x => -1, :y =>  0, :rx =>  1, :ry =>  0 },
+    "R"  => { :r => 0},
+    "P" => { :cr => 0}
   }
 
   class Factory
@@ -16,8 +17,7 @@ module Sim
       "N" => "^",
       "E" => ">",
       "S" => "v",
-      "W" => "<",
-      "R" => 0
+      "W" => "<"
     }
     
     REVERSE = { 
@@ -139,33 +139,18 @@ module Sim
         puts "Invalid input, enter movement command (N, E, S, W)!"
         return nil
       end
-      
-      if dir != 'R'
-        new_x = @location[0] + MOVES[dir][:x]
-        new_y = @location[1] + MOVES[dir][:y]
+     
+      if ORIENTATION.keys.include?(dir) 
+        forward(dir)
+      elsif dir == 'R'
+        backward
       else
-        new_x = @location[0] + MOVES[@location[3]][:rx]
-        new_y = @location[1] + MOVES[@location[3]][:ry]
-        dir = @location[3]      
-      end
-      
-      if @floorplan[new_y][new_x] == ' '
-        reassign(new_x, new_y, dir)
-      elsif @floorplan[new_y][new_x] == '*'
-        print "Cannot move, try alternative direction "
-        puts  "(current direction => #{ORIENTATION[dir]})." 
-      else
-        if occupants(@floorplan[new_y][new_x], dir).nil? 
-          reloc_pkg(dir, @floorplan[new_y][new_x])
-          reassign(new_x, new_y, dir)  
-        else
-          err_msg_2(new_x, new_y, occupants(@floorplan[new_y][new_x], dir))
-        end
+        pull
       end
       self
     end
         
-    def reloc_pkg(dir, pkg)    
+    def reloc_pkg(dir, pkg)
 
       new_loc = [pkg.loc[0] + MOVES[dir][:x], pkg.loc[1] + MOVES[dir][:y]]
     
@@ -187,6 +172,80 @@ module Sim
 
     private
     
+    def forward(dir)
+
+      new_x = @location[0] + MOVES[dir][:x]
+      new_y = @location[1] + MOVES[dir][:y]
+      next_loc = @floorplan[new_y][new_x]
+
+      if next_loc == ' '
+        reassign(new_x, new_y, dir)
+      elsif next_loc == '*'
+        print "Cannot move, try alternative direction "
+        puts  "(current direction => #{ORIENTATION[dir]})." 
+      else
+        if occupants(next_loc, dir).nil? 
+          reloc_pkg(dir, next_loc)
+          reassign(new_x, new_y, dir)  
+        else
+          err_msg_2(new_x, new_y, occupants(next_loc, dir))
+        end
+      end
+    end
+    
+    def backward
+
+      new_x = @location[0] + MOVES[@location[3]][:rx]
+      new_y = @location[1] + MOVES[@location[3]][:ry]
+      dir = @location[3]
+      next_loc = @floorplan[new_y][new_x]
+
+      if next_loc == ' '
+        reassign(new_x, new_y, dir)
+      elsif next_loc == '*'
+        print "Cannot move, try alternative direction "
+        puts  "(current direction => Reverse #{ORIENTATION[dir]})." 
+      else
+        if occupants(next_loc, REVERSE[dir]).nil? 
+          reloc_pkg(REVERSE[dir], next_loc)
+          reassign(new_x, new_y, dir)  
+        else
+          err_msg_2(new_x, new_y, occupants(next_loc, REVERSE[dir]))
+        end
+      end
+    end
+    
+    def pull
+
+      new_x = @location[0] + MOVES[@location[3]][:rx]
+      new_y = @location[1] + MOVES[@location[3]][:ry]
+      prev_x = @location[0] + MOVES[@location[3]][:x]
+      prev_y = @location[1] + MOVES[@location[3]][:y]
+      dir = @location[3]
+      next_loc = @floorplan[new_y][new_x]
+      prev_loc = @floorplan[prev_y][prev_x]
+      
+      if next_loc == ' '
+        reassign(new_x, new_y, dir)
+        if occupants(prev_loc, REVERSE[dir]).nil?
+          reloc_pkg(REVERSE[dir], prev_loc)
+        end
+      elsif next_loc == '*'
+        print "Cannot move, try alternative direction "
+        puts  "(current direction => Reverse #{ORIENTATION[dir]})." 
+      else
+        if occupants(next_loc, REVERSE[dir]).nil? 
+          reloc_pkg(REVERSE[dir], next_loc)
+          reassign(new_x, new_y, dir)
+          if occupants(prev_loc, REVERSE[dir]).nil?
+            reloc_pkg(REVERSE[dir], prev_loc)
+          end
+        else
+          err_msg_2(new_x, new_y, occupants(next_loc, REVERSE[dir]))
+        end
+      end      
+    end
+    
     def fill_floor(x, y, d1, d2, item)
       (y..(y+d2-1)).each do |i|
         (x..(x+d1-1)).each do |j|
@@ -196,7 +255,6 @@ module Sim
     end
     
     def reassign(new_x, new_y, dir)
-      
       @floorplan[new_y][new_x] = ORIENTATION[dir]
       @floorplan[@location[1]][@location[0]] = ' '
       @location = [new_x, new_y, ORIENTATION[dir], dir]
