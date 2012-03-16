@@ -70,25 +70,26 @@ module Sim
       # movement, 'move' is set to nil when placement is required or to the 
       # movement direction when package movement is required. This determines
       # the range of places in the floorplan to check for occupants.
-      if move.nil?
-        range_y = pkg.range[:y]
-        range_x = pkg.range[:x]
-      else
-        range_y = pkg.next_range(move)[:y]
-        range_x = pkg.next_range(move)[:x]
-      end
-      
-      (range_y).each do |i|
-         (range_x).each do |j|
-          if ((@floorplan[i][j] != ' ') && (@floorplan[i][j] != pkg)) 
-            existing_occ << @floorplan[i][j]
+      if move.nil? 
+        (pkg.range[:y]).each do |i|
+          (pkg.range[:x]).each do |j|
+            if @floorplan[i][j] != ' '
+              existing_occ << @floorplan[i][j]
+            end
           end
+        end
+      else
+        (pkg.next_range(move)[:y]).each do |i|
+           (pkg.next_range(move)[:x]).each do |j|
+             unless [' ', '*', pkg, @location[2] ].include?(@floorplan[i][j])
+               existing_occ << @floorplan[i][j]
+             end
+           end
         end
       end
       if existing_occ.empty?
         nil
       else
-        existing_occ.each { |a| puts a}
         existing_occ
       end
     end  
@@ -144,7 +145,7 @@ module Sim
         forward(dir)
       elsif dir == 'R'
         backward
-      else
+      elsif dir == 'P'
         pull
       end
       self
@@ -181,6 +182,7 @@ module Sim
       if next_loc == ' '
         reassign(new_x, new_y, dir)
       elsif next_loc == '*'
+        reassign(@location[0],@location[1],dir)
         print "Cannot move, try alternative direction "
         puts  "(current direction => #{ORIENTATION[dir]})." 
       else
@@ -188,6 +190,7 @@ module Sim
           reloc_pkg(dir, next_loc)
           reassign(new_x, new_y, dir)  
         else
+          reassign(@location[0],@location[1],dir)
           err_msg_2(new_x, new_y, occupants(next_loc, dir))
         end
       end
@@ -225,25 +228,33 @@ module Sim
       next_loc = @floorplan[new_y][new_x]
       prev_loc = @floorplan[prev_y][prev_x]
       
-      if next_loc == ' '
-        reassign(new_x, new_y, dir)
-        if occupants(prev_loc, REVERSE[dir]).nil?
-          reloc_pkg(REVERSE[dir], prev_loc)
-        end
-      elsif next_loc == '*'
-        print "Cannot move, try alternative direction "
-        puts  "(current direction => Reverse #{ORIENTATION[dir]})." 
-      else
-        if occupants(next_loc, REVERSE[dir]).nil? 
-          reloc_pkg(REVERSE[dir], next_loc)
-          reassign(new_x, new_y, dir)
+      if prev_loc != ' ' && prev_loc != '*'     
+        if next_loc == ' '
           if occupants(prev_loc, REVERSE[dir]).nil?
+            reassign(new_x, new_y, dir)
             reloc_pkg(REVERSE[dir], prev_loc)
+          else
+            err_msg_2(prev_x, prev_y, occupants(prev_loc, REVERSE[dir]))
           end
+        elsif next_loc == '*'
+          print "Cannot move, try alternative direction "
+          puts  "(current direction => Reverse #{ORIENTATION[dir]})."   
         else
-          err_msg_2(new_x, new_y, occupants(next_loc, REVERSE[dir]))
+          if occupants(next_loc, REVERSE[dir]).nil?         
+            if occupants(prev_loc, REVERSE[dir]).nil?
+              reloc_pkg(REVERSE[dir], next_loc)
+              reassign(new_x, new_y, dir)
+              reloc_pkg(REVERSE[dir], prev_loc)
+            else
+              err_msg_2(prev_x, prev_y, occupants(prev_loc, REVERSE[dir]))
+            end
+          else
+            err_msg_2(new_x, new_y, occupants(next_loc, REVERSE[dir]))
+          end          
         end
-      end      
+      else
+        err_msg_3(prev_loc)
+      end
     end
     
     def fill_floor(x, y, d1, d2, item)
@@ -255,8 +266,8 @@ module Sim
     end
     
     def reassign(new_x, new_y, dir)
-      @floorplan[new_y][new_x] = ORIENTATION[dir]
       @floorplan[@location[1]][@location[0]] = ' '
+      @floorplan[new_y][new_x] = ORIENTATION[dir]
       @location = [new_x, new_y, ORIENTATION[dir], dir]
     end
     
@@ -279,6 +290,15 @@ module Sim
         puts " of dimensions #{check[0].dims}"
       else 
         puts "clash with wall ('*')"
+      end
+    end
+    
+    def err_msg_3(check)
+      if check == '*' 
+        puts "Cannot pull wall. Try alternative command."
+      
+      elsif check == ' ' 
+        puts "No package to pull. Try alternative command."
       end
     end
   end 
