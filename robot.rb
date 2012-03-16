@@ -1,7 +1,8 @@
 # ROBOT
 
 module Sim
-  
+  #   Defines possible moves of robot and the effect on 'x' and 'y' 
+  #   coordinates.
   MOVES = {
     "N"  => { :x =>  0, :y => -1, :rx =>  0, :ry =>  1 },
     "E"  => { :x =>  1, :y =>  0, :rx => -1, :ry =>  0 },
@@ -13,6 +14,8 @@ module Sim
 
   class Factory
   
+    #   Defines how robot is represented on screen on the floor plan 
+    #   given the direction of movement.
     ORIENTATION = { 
       "N" => "^",
       "E" => ">",
@@ -20,6 +23,8 @@ module Sim
       "W" => "<"
     }
     
+    #   Defines how robot movement is interpreted when operating in 
+    #   reverse mode.
     REVERSE = { 
       "N" => "S",
       "E" => "W",
@@ -33,27 +38,28 @@ module Sim
     
       @inventory = Inventory.new
       
-      # creates blank floor with walls defined as '*' character
+      #   Creates blank floor with walls defined as '*' character.
       bottom_row = top_row = Array.new(@x) { "*" }
       internal_row = Array.new(@x) { " " }
       internal_row[0]  = "*"
       internal_row[-1] = "*"
     
       @floorplan = Array.new(@y) { Array.new(@x){' '} }
-      @floorplan[0] =  top_row #inserts 'walls' top row of floor
-      @floorplan[-1] = bottom_row #inserts 'walls' bottom row of floor
+      @floorplan[0] =  top_row    #  Inserts 'walls' top row of floor
+      @floorplan[-1] = bottom_row #  Inserts 'walls' bottom row of floor
 
-      (1..(@y-2)).each do |i| #inserts remaining internal rows
+      #   Inserts remaining internal rows
+      (1..(@y-2)).each do |i| 
         @floorplan[i] = internal_row.dup
       end
     end
   
     def place_pkg(x, y, d1, d2, type)
-      # create new package
+      #   Creates new package object
       pkg = Package.new(x, y, d1, d2, type)
   
-      # check if insertion space is already occupied, insert if empty, 
-      # return err_msg_1 if occupied
+      #   Checks if insertion space is already occupied and inserts
+      #   new package if empty or returns err_msg_1 if occupied.
       if occupants(pkg, nil).nil? 
         fill_floor(x, y, d1, d2, pkg)
         @inventory.add(pkg)
@@ -64,12 +70,14 @@ module Sim
     end
     
     def occupants(pkg, move)  
-      existing_occ = []
 
-      # occupants performs checking for package placement and for package 
-      # movement, 'move' is set to nil when placement is required or to the 
-      # movement direction when package movement is required. This determines
-      # the range of places in the floorplan to check for occupants.
+    #   Occupants performs checking for package placement and for package 
+    #   movement, 'move' is set to nil when placement is required or set 
+    #   to the movement direction when package movement is required.  
+    #   It uses the size of packages to determine the range of places 
+    #   in the floorplan to check for occupants before movement.
+
+      existing_occ = []
       if move.nil? 
         (pkg.range[:y]).each do |i|
           (pkg.range[:x]).each do |j|
@@ -81,7 +89,7 @@ module Sim
       else
         (pkg.next_range(move)[:y]).each do |i|
            (pkg.next_range(move)[:x]).each do |j|
-             unless [' ', '*', pkg, @location[2] ].include?(@floorplan[i][j])
+             unless [' ', pkg, @location[2] ].include?(@floorplan[i][j])
                existing_occ << @floorplan[i][j]
              end
            end
@@ -103,6 +111,7 @@ module Sim
     end
   
     def place_robot
+    #   Initialises the Robots position and direction of movement.  
       
       puts "Enter x coordinate:"
       x = STDIN.readline.chomp.to_i
@@ -124,6 +133,8 @@ module Sim
     end
 
     def move_robot_forever
+    #   Enables repeated input of movement commands with the 
+    #   need to re-run the move_robot method.
       while true do
         move_robot
         show
@@ -131,7 +142,12 @@ module Sim
     end
   
     def move_robot
-      if @location.nil?
+    #   Method controls movement of the robot alone and or in conjunction
+    #   with packages in front or behind as well as allowing for packages
+    #   to be picked up. The methods call on the forward, backward and pull
+    #   methods in order to carry out movement.
+      
+      if @location.nil? # Check if robot is present.
         return puts "No Robot present, use place_robot command to begin."
       end
       puts "Enter movement command (N, E, S, W or R (reverse)):"
@@ -152,23 +168,14 @@ module Sim
     end
         
     def reloc_pkg(dir, pkg)
-
-      new_loc = [pkg.loc[0] + MOVES[dir][:x], pkg.loc[1] + MOVES[dir][:y]]
-    
-      #clear old package from floorplan
+    #   Used in within methods associated with package movement.
+    #   Carries out the process of reassigning package location
+    #   within floorplan.  
       fill_floor(pkg.loc[0], pkg.loc[1], pkg.dims[0], pkg.dims[1],' ')
-    
-      #insert relocated package into floorplan
-      place_pkg(new_loc[0], new_loc[1], pkg.dims[0], pkg.dims[1], pkg.to_s)
-
-      # #clear old package from floorplan
-      # fill_floor(pkg.loc[0], pkg.loc[1], pkg.dims[0], pkg.dims[1],' ')
-      #     
-      # #insert relocated package into floorplan
-      # mod_pkg = pkg.move_pkg(dir)
-      # puts "#{mod_pkg}"
-      # fill_floor(mod_pkg.loc[0], mod_pkg.loc[0], mod_pkg.dims[0], 
-      #   mod_pkg.dims[1], mod_pkg.to_s)      
+      mod_pkg = pkg.move_pkg(dir)
+      puts "#{mod_pkg.loc} #{mod_pkg.dims} #{mod_pkg.to_s}"
+      fill_floor(mod_pkg.loc[0], mod_pkg.loc[1], mod_pkg.dims[0], 
+        mod_pkg.dims[1], mod_pkg)      
     end
 
     private
@@ -325,10 +332,11 @@ module Sim
       [@x, @y]
     end  
 
-    # def move_pkg(dir)
-    #   @x = @x + MOVES[dir][:x]
-    #   @y = @y + MOVES[dir][:y]
-    # end
+    def move_pkg(dir)
+      @x += MOVES[dir][:x]
+      @y += MOVES[dir][:y]
+      self
+    end
 
     def range
       { :x => @x..(@x+@d1-1), :y => @y..(@y+@d2-1) }
